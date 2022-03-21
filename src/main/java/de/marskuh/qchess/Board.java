@@ -21,7 +21,7 @@ public class Board {
     }
 
     public long getOccupiedSquares() {
-        return bitboards.values().stream().map(Side::mergeBitBoardsWithKing).reduce((left, right) -> left | right).orElse(0L);
+        return bitboards.values().stream().map(Side::getOccupiedSquares).reduce((left, right) -> left | right).orElse(0L);
     }
 
     public Piece getPieceAt(int x, int y) {

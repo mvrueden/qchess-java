@@ -18,6 +18,18 @@ public class MoveGeneration {
 //        return moves;
 //    }
 
+    // Checkout https://www.chessprogramming.org/Efficient_Generation_of_Sliding_Piece_Attacks#Sliding_Attacks_by_Calculation for more
+    // details on how this works
+    // You may also check out this video, which may explain it further: https://www.youtube.com/watch?v=bCH4YK6oq8M
+    public static long generateRookAttackMask(int pieceIndex, final long occupiedSquares) {
+        long piecePositionBitboard = 1L << (63 - pieceIndex); // Convert to 64 bitboard // TODO MVR magic number
+        int rank = 8 - pieceIndex / 8 - 1;  // TODO MVR magic numbers
+        int file = pieceIndex % 8;
+        long horizontalMoves = ((occupiedSquares - 2 * piecePositionBitboard) ^ Long.reverse(Long.reverse(occupiedSquares) - 2 * Long.reverse(piecePositionBitboard)));
+        long verticalMoves = ((occupiedSquares&BitBoards.FILE_MASKS[file]) - (2 * piecePositionBitboard)) ^ Long.reverse(Long.reverse(occupiedSquares&BitBoards.FILE_MASKS[file]) - (2 * Long.reverse(piecePositionBitboard)));
+        return (verticalMoves & BitBoards.FILE_MASKS[file]) | horizontalMoves & BitBoards.RANK_MASKS[rank];
+    }
+
     public static long generatePawnAttackMaskWhite(long pawnPositions) {
         final long pawnAttackMask = (pawnPositions << 7 & ~BitBoards.FILE_A) | (pawnPositions << 9 & ~BitBoards.FILE_H);
         return pawnAttackMask;

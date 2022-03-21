@@ -50,6 +50,10 @@ public class Side {
         return mergeBitBoardsWithoutKing() | king;
     }
 
+    public long getOccupiedSquares() {
+        return mergeBitBoardsWithKing();
+    }
+
     public void setPieceType(int col, int row, PieceType type) {
         final int index = BitUtils.calculateIndex(col, row);
         final String empty = "0000000000000000000000000000000000000000000000000000000000000000"; // 64 bit

@@ -6,6 +6,8 @@ import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import static de.marskuh.qchess.BitBoards.*;
+import static de.marskuh.qchess.BitBoards.RANK_1;
 import static de.marskuh.qchess.BitBoards.Tiles.*;
 
 public class MoveGenerationTest {
@@ -105,6 +107,94 @@ public class MoveGenerationTest {
             logger.debug(new BitboardRenderer("Actual Attack Mask for position " + i).render(attackMask));
             logger.debug(new BitboardRenderer("Expected Attack Mask for position " + i).render(expectedAttackMask[i]));
             Assertions.assertThat(attackMask).isEqualTo(expectedAttackMask[i]);
+        }
+    }
+
+    @Test
+    public void verifyRookMoves() {
+        final long[] expected = new long[] {
+                FILE_A | RANK_8,
+                FILE_B | RANK_8,
+                FILE_C | RANK_8,
+                FILE_D | RANK_8,
+                FILE_E | RANK_8,
+                FILE_F | RANK_8,
+                FILE_G | RANK_8,
+                FILE_H | RANK_8,
+
+                FILE_A | RANK_7,
+                FILE_B | RANK_7,
+                FILE_C | RANK_7,
+                FILE_D | RANK_7,
+                FILE_E | RANK_7,
+                FILE_F | RANK_7,
+                FILE_G | RANK_7,
+                FILE_H | RANK_7,
+
+                FILE_A | RANK_6,
+                FILE_B | RANK_6,
+                FILE_C | RANK_6,
+                FILE_D | RANK_6,
+                FILE_E | RANK_6,
+                FILE_F | RANK_6,
+                FILE_G | RANK_6,
+                FILE_H | RANK_6,
+
+                FILE_A | RANK_5,
+                FILE_B | RANK_5,
+                FILE_C | RANK_5,
+                FILE_D | RANK_5,
+                FILE_E | RANK_5,
+                FILE_F | RANK_5,
+                FILE_G | RANK_5,
+                FILE_H | RANK_5,
+
+                FILE_A | RANK_4,
+                FILE_B | RANK_4,
+                FILE_C | RANK_4,
+                FILE_D | RANK_4,
+                FILE_E | RANK_4,
+                FILE_F | RANK_4,
+                FILE_G | RANK_4,
+                FILE_H | RANK_4,
+
+                FILE_A | RANK_3,
+                FILE_B | RANK_3,
+                FILE_C | RANK_3,
+                FILE_D | RANK_3,
+                FILE_E | RANK_3,
+                FILE_F | RANK_3,
+                FILE_G | RANK_3,
+                FILE_H | RANK_3,
+
+                FILE_A | RANK_2,
+                FILE_B | RANK_2,
+                FILE_C | RANK_2,
+                FILE_D | RANK_2,
+                FILE_E | RANK_2,
+                FILE_F | RANK_2,
+                FILE_G | RANK_2,
+                FILE_H | RANK_2,
+
+                FILE_A | RANK_1,
+                FILE_B | RANK_1,
+                FILE_C | RANK_1,
+                FILE_D | RANK_1,
+                FILE_E | RANK_1,
+                FILE_F | RANK_1,
+                FILE_G | RANK_1,
+                FILE_H | RANK_1,
+        };
+        Assertions.assertThat(expected).hasSize(64); // TODO MVR magic numbers
+        
+        // We have to "remove" the rook bit, in order to get the correct result
+        for (int i=0; i<64; i++) {
+            expected[i] = expected[i] & ~(1L << (63 - i));
+        }
+
+        for (int i=0; i<64; i++) {
+            LoggerFactory.getLogger(getClass()).info("Verifying {}", i);
+            Assertions.assertThat(MoveGeneration.generateRookAttackMask(i, BitBoards.EMPTY_MASK | (1L << 63 - i))).isEqualTo(expected[i]);
         }
     }
 }
