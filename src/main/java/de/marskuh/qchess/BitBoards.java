@@ -8,7 +8,7 @@ public interface BitBoards {
     // Selects the whole board, most likely only used for testing purposes
     long ALL_MASK = 0xFFFFFFFFFFFFFFFFL;
 
-    long FILE_A = 0x8080808080808080L;
+    long FILE_A = 0x8080808080808080L; // 0b1000000010000000100000001000000010000000100000001000000010000000L
     long FILE_B = FILE_A >>> 1;
     long FILE_C = FILE_A >>> 2;
     long FILE_D = FILE_A >>> 3;
