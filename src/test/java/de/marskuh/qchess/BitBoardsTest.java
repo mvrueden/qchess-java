@@ -95,4 +95,12 @@ public class BitBoardsTest {
     public void verifySquaresOrToAll() {
         Assertions.assertThat(BLACK_SQUARES | WHITE_SQUARES).isEqualTo(ALL_MASK);
     }
+
+    // TODO MVR add anti diagonals
+    @Test
+    public void verifyDiagonals() {
+//        final long diagonals = DIAGONAL_A1 | DIAGONAL_A3 | DIAGONAL_A5 | DIAGONAL_A7 | DIAGONAL_E1 | DIAGONAL_G1 | DIAGONAL_C1;
+//        Assertions.assertThat(diagonals).isEqualTo(BLACK_SQUARES);
+//        final long x = 0b000000010000001000000100000010000001000000100000010000010000000L;;
+    }
 }

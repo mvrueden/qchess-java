@@ -21,13 +21,23 @@ public class MoveGeneration {
     // Checkout https://www.chessprogramming.org/Efficient_Generation_of_Sliding_Piece_Attacks#Sliding_Attacks_by_Calculation for more
     // details on how this works
     // You may also check out this video, which may explain it further: https://www.youtube.com/watch?v=bCH4YK6oq8M
-    public static long generateRookAttackMask(int pieceIndex, final long occupiedSquares) {
+    public static long generateLineAttackMask(int pieceIndex, final long occupiedSquares) {
         long piecePositionBitboard = 1L << (63 - pieceIndex); // Convert to 64 bitboard // TODO MVR magic number
-        int rank = 8 - pieceIndex / 8 - 1;  // TODO MVR magic numbers
+        int rank = (8 - 1) - pieceIndex / 8;  // TODO MVR magic numbers
         int file = pieceIndex % 8;
         long horizontalMoves = ((occupiedSquares - 2 * piecePositionBitboard) ^ Long.reverse(Long.reverse(occupiedSquares) - 2 * Long.reverse(piecePositionBitboard)));
-        long verticalMoves = ((occupiedSquares&BitBoards.FILE_MASKS[file]) - (2 * piecePositionBitboard)) ^ Long.reverse(Long.reverse(occupiedSquares&BitBoards.FILE_MASKS[file]) - (2 * Long.reverse(piecePositionBitboard)));
+        long verticalMoves = ((occupiedSquares & BitBoards.FILE_MASKS[file]) - (2 * piecePositionBitboard)) ^ Long.reverse(Long.reverse(occupiedSquares & BitBoards.FILE_MASKS[file]) - (2 * Long.reverse(piecePositionBitboard)));
         return (verticalMoves & BitBoards.FILE_MASKS[file]) | horizontalMoves & BitBoards.RANK_MASKS[rank];
+    }
+
+    public static long generateDiagonalAttacks(int pieceIndex, long occupiedSquares) {
+        final long piecePositionBitboard = 1L << (63 - pieceIndex); // TODO MVR magic numbers
+        final long diagonalMask = BitBoards.DIAGONAL_MASKS[(pieceIndex / 8) + (pieceIndex % 8)]; // TODO MVR magic numbers
+        final long antiDiagonalMask = BitBoards.ANTI_DIAGONAL_MASKS[(pieceIndex / 8 + 7) - (pieceIndex % 8)]; // TODO MVR magic numbers
+        // TODO MVR should be identical to verticalMoves
+        long diagonalAttacks = ((occupiedSquares & diagonalMask) - (2 * piecePositionBitboard)) ^ Long.reverse(Long.reverse(occupiedSquares & diagonalMask) - (2 * Long.reverse(piecePositionBitboard)));
+        long antiDiagonalAttacks = ((occupiedSquares & antiDiagonalMask) - (2 * piecePositionBitboard)) ^ Long.reverse(Long.reverse(occupiedSquares & antiDiagonalMask) - (2 * Long.reverse(piecePositionBitboard)));
+        return (diagonalAttacks & diagonalMask) | (antiDiagonalAttacks & antiDiagonalMask);
     }
 
     public static long generatePawnAttackMaskWhite(long pawnPositions) {
@@ -40,14 +50,17 @@ public class MoveGeneration {
         return pawnAttackMask;
     }
 
-    public static void generatePawnMovesWhite(long pawnAttackMask, Board board, List<Move> moves) {
-        final long pawnAttacks = pawnAttackMask & board.getOccupiedSquares(Team.Black);
+    public static void generatePawnMovesWhite(long pawns, long pawnAttackMask, final long occupiedWhite, List<Move> moves) {
+        // First create movements
+
+
+        final long pawnAttacks = pawnAttackMask & occupiedWhite;
+
+
         // TODO MVR add attacks
     }
 
-
     /**
-     *
      * @param knightIndex the index, the knight is positioned. 0 => A8, 63 => F1
      * @return A bitboard where each attack is marked with 1
      */
@@ -56,7 +69,7 @@ public class MoveGeneration {
         // the knightIndex is > 45, we shift right, otherwise left
         final long threshold = 64 - 19;
         // Masks off any overhead at AB, GH
-        long additionalMask = (knightIndex % 8 < 4) ?  ~(BitBoards.FILE_G | BitBoards.FILE_H) :  ~(BitBoards.FILE_A | BitBoards.FILE_B);
+        long additionalMask = (knightIndex % 8 < 4) ? ~(BitBoards.FILE_G | BitBoards.FILE_H) : ~(BitBoards.FILE_A | BitBoards.FILE_B);
         if (knightIndex > threshold) {
             return BitBoards.KNIGHT_ATTACK_MASK >>> (knightIndex - threshold) & additionalMask;
         } else {

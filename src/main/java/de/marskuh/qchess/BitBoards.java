@@ -34,6 +34,44 @@ public interface BitBoards {
     long[] FILE_MASKS = new long[]{FILE_A, FILE_B, FILE_C, FILE_D, FILE_E, FILE_F, FILE_G, FILE_H};
     long[] RANK_MASKS = new long[]{RANK_1, RANK_2, RANK_3, RANK_4, RANK_5, RANK_6, RANK_7, RANK_8};
 
+    // From top left to bottom right
+    long[] DIAGONAL_MASKS = new long[]{
+            A8,
+            A7 | B8,
+            A6 | B7 | C8,
+            A5 | B6 | C7 | D8,
+            A4 | B5 | C6 | D7 | E8,
+            A3 | B4 | C5 | D6 | E7 | F8,
+            A2 | B3 | C4 | D5 |E6 | F7 | G8,
+            A1 | B2 | C3 | D4 | E5 | F6 | G7 | H8,
+            B1 | C2 | D3 | E4 | F5 | G6 | H7,
+            C1 | D2 | E3 |F4 | G5 | H6,
+            D1 | E2 | F3 | G4 | H5,
+            E1 | F2 | G3 | H4,
+            F1 | G2 | H3,
+            G1 | H2,
+            H1
+    };
+
+    // From top right to bottom left
+    long[] ANTI_DIAGONAL_MASKS = new long[]{
+         H8,
+         H7 | G8,
+         H6 | G7 | F8,
+         H5 | G6 | F7 | E8,
+         H4 | G5 | F6 | E7 | D8,
+         H3 | G4 | F5 | E6 | D7 | C8,
+         H2 | G3 | F4 | E5 | D6 | C7 | B8,
+         H1 | G2 | F3 | E4 | D5 | C6 | B7 | A8,
+         G1 | F2 | E3 | D4 | C5 | B6 | A7,
+         F1 | E2 | D3 | C4 | B5 | A6,
+         E1 | D2 | C3 | B4 | A5,
+         D1 | C2 | B3 | A4,
+         C1 | B2 | A3,
+         B1 | A2,
+         A1
+    };
+
     // Positioned in the upper right, at F3, which is index => 45
     long KNIGHT_ATTACK_MASK = G5 | H4 | H2 | G1 | E1 | D2 | D4 | E5;
 
