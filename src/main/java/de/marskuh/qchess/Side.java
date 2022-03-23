@@ -11,6 +11,19 @@ public class Side {
     public long queens;
     public long rooks;
     public long king;
+    public MoveGeneration.CastlingInfo castling = new MoveGeneration.CastlingInfo();
+
+    public Side(MoveGeneration.CastlingInfo castling) {
+        this.castling = Objects.requireNonNull(castling);
+    }
+
+    public Side() {
+
+    }
+
+    public MoveGeneration.CastlingInfo getCastling() {
+        return castling;
+    }
 
     public Side withPawns(long pawns) {
         this.pawns = pawns;
@@ -39,6 +52,11 @@ public class Side {
 
     public Side withKing(long king) {
         this.king = king;
+        return this;
+    }
+
+    public Side withCastling(boolean canCastleKingSide, boolean canCastleQueenSide) {
+        this.castling = new MoveGeneration.CastlingInfo(canCastleKingSide, canCastleQueenSide);
         return this;
     }
 

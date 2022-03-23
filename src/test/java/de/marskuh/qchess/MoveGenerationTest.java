@@ -1,10 +1,17 @@
 package de.marskuh.qchess;
 
+import com.google.common.base.Charsets;
+import com.google.common.io.ByteStreams;
+import com.google.common.primitives.Bytes;
 import de.marskuh.qchess.renderer.BitboardRenderer;
+import de.marskuh.qchess.renderer.BoardRenderer;
 import org.assertj.core.api.Assertions;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.util.List;
 
 import static de.marskuh.qchess.BitBoards.*;
 import static de.marskuh.qchess.BitBoards.RANK_1;
@@ -285,4 +292,35 @@ public class MoveGenerationTest {
             Assertions.assertThat(actualAttackMask).isEqualTo(expectedAttackMask[i]);
         }
     }
+
+    @Test
+    public void verifyPerfsuite() throws IOException {
+        final byte[] bytes = ByteStreams.toByteArray(getClass().getResourceAsStream("/perfsuite.epd"));
+        final String content = new String(bytes);
+        final FenParser parser = new FenParser();
+        for(String eachLine : content.split("\n")) {
+            final String[] columns = eachLine.split(";");
+            final String fen = columns[0].trim();
+//            final String fen = "8/8/8/8/8/8/6k1/4K2R w K - 0 1";
+//            final String fen = "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1";
+//            final String fen = "8/8/8/8/8/8/1k6/R3K3 w Q - 0 1";
+//            final String fen = "4k2r/6K1/8/8/8/8/8/8 w k - 0 1";
+//            final String fen = "K7/b7/1b6/1b6/8/8/8/k6B w - - 0 1";
+//            final String fen = "7k/3p4/8/8/3P4/8/8/K7 w - - 0 1";
+            final String expectedString = columns[1].split(" ")[1].trim();
+            final long expected = Long.parseLong(expectedString);
+            final Board board = parser.parse(fen);
+//            printToConsole(board);
+            if (board.getActiveTeam() == Team.White) {
+                final List<Move> moves = MoveGeneration.generateMoves(board, board.getActiveTeam());
+                LoggerFactory.getLogger(getClass()).info("{}, expected at depth {}: {}", fen, 1, expected);
+                Assertions.assertThat(moves).hasSize((int) expected);
+            }
+        }
+    }
+
+    private static void printToConsole(Board board) {
+        System.out.println(new BoardRenderer().render(board));
+    }
+
 }

@@ -5,15 +5,21 @@ import java.util.*;
 public class Board {
 
     public Map<Team, Side> bitboards = new HashMap<>();
+    private Team nextTurn;
 
     private Board() {
         this(new HashMap<>());
     }
 
     public Board(Map<Team, Side> boardMap) {
+        this(boardMap, Team.White);
+    }
+
+    public Board(Map<Team, Side> boardMap, Team nextTurn) {
         this.bitboards.putAll(boardMap);
         this.bitboards.putIfAbsent(Team.White, new Side());
         this.bitboards.putIfAbsent(Team.Black, new Side());
+        this.nextTurn = nextTurn == null ? Team.White : nextTurn;
     }
 
     public long getEmptySquares() {
@@ -45,6 +51,10 @@ public class Board {
 
     public long getOccupiedSquares(Team white) {
         return bitboards.get(white).mergeBitBoardsWithKing();
+    }
+
+    public Team getActiveTeam() {
+        return nextTurn;
     }
 
     @Override

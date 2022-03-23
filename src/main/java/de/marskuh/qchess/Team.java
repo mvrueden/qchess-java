@@ -12,4 +12,8 @@ public enum Team {
     public boolean isBlack() {
         return this == Black;
     }
+
+    public Team other() {
+        return isBlack() ? White : Black;
+    }
 }

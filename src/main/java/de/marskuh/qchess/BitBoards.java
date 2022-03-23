@@ -1,5 +1,7 @@
 package de.marskuh.qchess;
 
+import de.marskuh.qchess.renderer.BitboardRenderer;
+
 import static de.marskuh.qchess.BitBoards.Tiles.*;
 import static de.marskuh.qchess.BitBoards.Tiles.E5;
 
@@ -149,5 +151,15 @@ public interface BitBoards {
         long H6 = FILE_H & RANK_6;
         long H7 = FILE_H & RANK_7;
         long H8 = FILE_H & RANK_8;
+    }
+
+    // TODO MVR move to DebugUtils or something else
+    static void printToConsole(final long bitboard) {
+        printToConsole("", bitboard);
+    }
+
+    // TODO MVR move to DebugUtils or something else
+    static void printToConsole(String topic, long bitboard) {
+        System.out.println(new BitboardRenderer(topic).render(bitboard));
     }
 }

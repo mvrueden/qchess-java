@@ -4,23 +4,18 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class FenParser {
+
     public Board parse(String fen) {
         if (fen == null || fen.isEmpty()) throw new IllegalArgumentException("Provided input string is empty");
         final String[] segments = fen.split(" ");
         if (segments.length != 1 && segments.length != 6) {
             throw new IllegalArgumentException("The provided string is not a valid fen expression");
         }
-        Map<Team, Side> boardMap = ParsePositions(segments[0]);
-        return new Board(boardMap);
-        //var nextTurn = segments[1].ToLower() == "w" ? TeamColor.White : TeamColor.Black;
-//        var whiteCanCastleKingSide = segments[2].Contains('K');
-//        var whiteCanCastleQueenSide = segments[2].Contains('Q');
-//        var blackCanCastleKingSide = segments[2].Contains('k');
-//        var blackCanCastleQueenSide = segments[2].Contains('q');
-//        var boardLayout = new BoardLayout(positions, nextTurn);
-//        boardLayout.WhiteCastle(whiteCanCastleKingSide, whiteCanCastleQueenSide);
-//        boardLayout.BlackCastle(blackCanCastleKingSide, blackCanCastleQueenSide);
-//        return boardLayout;
+        final Map<Team, Side> boardMap = ParsePositions(segments[0]);
+        boardMap.get(Team.White).withCastling(segments[2].contains("K"), segments[2].contains("Q"));
+        boardMap.get(Team.Black).withCastling(segments[2].contains("k"), segments[2].contains("q"));
+        final Team nextTurn = segments[1].equalsIgnoreCase("w") ? Team.White : Team.Black;
+        return new Board(boardMap, nextTurn);
     }
 
     private Map<Team, Side> ParsePositions(String segment) {

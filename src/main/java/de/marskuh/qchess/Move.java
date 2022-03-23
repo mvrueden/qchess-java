@@ -1,5 +1,7 @@
 package de.marskuh.qchess;
 
+import com.google.common.base.MoreObjects;
+
 // A move is encoded as a 16 bit integer in the history
 // Inspired by stockfish
 // TODO MVR do we really need this or can we abstract it a bit more?!
@@ -116,4 +118,14 @@ public class Move {
         return MoveFlag.values()[index];
     }
 
+    @Override
+    public String toString() {
+        return MoreObjects.toStringHelper(this)
+                .add("internalRepresentation", internalRepresentation)
+                .add("fromIndex", getFromIndex())
+                .add("toIndex", getToIndex())
+                .add("moveFlag", getMoveFlag())
+                .add("promoteTo", getMoveFlag() == MoveFlag.Promotion ? getPromoteTo() : null)
+                .toString();
+    }
 }
