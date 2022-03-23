@@ -307,15 +307,16 @@ public class MoveGenerationTest {
 //            final String fen = "4k2r/6K1/8/8/8/8/8/8 w k - 0 1";
 //            final String fen = "K7/b7/1b6/1b6/8/8/8/k6B w - - 0 1";
 //            final String fen = "7k/3p4/8/8/3P4/8/8/K7 w - - 0 1";
+//            final String fen = "4k3/8/8/8/8/8/8/4K2R b K - 0 1";
+//            final String fen = "r3k2r/8/8/8/8/8/8/R3K2R b KQkq - 0 1";
+//            final String fen = "8/8/8/8/8/K7/P7/k7 b - - 0 1";
             final String expectedString = columns[1].split(" ")[1].trim();
             final long expected = Long.parseLong(expectedString);
             final Board board = parser.parse(fen);
 //            printToConsole(board);
-            if (board.getActiveTeam() == Team.White) {
-                final List<Move> moves = MoveGeneration.generateMoves(board, board.getActiveTeam());
-                LoggerFactory.getLogger(getClass()).info("{}, expected at depth {}: {}", fen, 1, expected);
-                Assertions.assertThat(moves).hasSize((int) expected);
-            }
+            final List<Move> moves = MoveGeneration.generateMoves(board, board.getActiveTeam());
+            LoggerFactory.getLogger(getClass()).info("{}, expected at depth {}: {}", fen, 1, expected);
+            Assertions.assertThat(moves).hasSize((int) expected);
         }
     }
 

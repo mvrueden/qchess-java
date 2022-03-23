@@ -18,14 +18,18 @@ public class MoveGeneration {
             return pawnAttackMask | knightAttackMask | queenAttackMask | rookAttackMask | bishopAttackMask | kingAttackMask;
         }
 
+        public long getCheckCount(int index) {
+            return getCheckCount(1L << (63 - index));
+        }
+
         // TODO MVR is this fast enough?
-        public long getCheckCount(long index) {
-            return ((pawnAttackMask & index) == 0 ? 0 : 1)
-                    + ((knightAttackMask & index) == 0 ? 0 : 1)
-                    + ((queenAttackMask & index) == 0 ? 0 : 1)
-                    + ((rookAttackMask & index) == 0 ? 0 : 1)
-                    + ((bishopAttackMask & index) == 0 ? 0 : 1)
-                    + ((kingAttackMask & index) == 0 ? 0 : 1);
+        public int getCheckCount(long bitboard) {
+            return ((pawnAttackMask & bitboard) == 0 ? 0 : 1)
+                    + ((knightAttackMask & bitboard) == 0 ? 0 : 1)
+                    + ((queenAttackMask & bitboard) == 0 ? 0 : 1)
+                    + ((rookAttackMask & bitboard) == 0 ? 0 : 1)
+                    + ((bishopAttackMask & bitboard) == 0 ? 0 : 1)
+                    + ((kingAttackMask & bitboard) == 0 ? 0 : 1);
         }
     }
 
@@ -42,7 +46,6 @@ public class MoveGeneration {
     }
 
     public static List<Move> generateMoves(Board board, Team team) {
-        final Attacks attacks = new Attacks();
         final List<Move> moves = new ArrayList<>();
         final Side side = board.bitboards.get(team);
         final Side other = board.bitboards.get(team.other());
@@ -58,8 +61,9 @@ public class MoveGeneration {
                     moves);
         } else {
             generateMovesBlack(
-                    attacks,
+                    castling,
                     side.pawns, side.knights, side.bishops, side.rooks, side.queens, side.king,
+                    other.pawns, other.knights, other.bishops, other.rooks, other.queens, other.king,
                     board.getEmptySquares(),
                     board.getOccupiedSquares(),
                     board.getOccupiedSquares(Team.White),
@@ -75,15 +79,30 @@ public class MoveGeneration {
                                           long occupied,
                                           long occupiedBlack,
                                           List<Move> moves) {
-        generatePawnMovesWhite(WP, occupied, empty, occupiedBlack, moves);
-        generateKnightMoves(WN, occupied, empty, occupiedBlack, moves);
-        generateBishopMoves(WB, occupied, empty, occupiedBlack, moves);
-        generateRookMoves(WR, occupied, empty, occupiedBlack, moves);
-        generateQueenMoves(WQ, occupied, empty, occupiedBlack, moves);
-        
         final Attacks enemyAttacks = generateAttacks(BP, BN, BB, BR, BQ, BK, occupied, false);
-        generateKingMoves(enemyAttacks, empty, occupiedBlack, WK, moves);
-        generateKingCastlingMoves(enemyAttacks, castlingInfo, occupied, true, WK, moves);
+        final int kingAttackCount = enemyAttacks.getCheckCount(WK);
+        if (kingAttackCount >= 2) { // only king moves are valid
+            generateKingMoves(enemyAttacks, empty, occupiedBlack, WK, moves);
+        } else if(kingAttackCount == 1) {
+            final Attacks protectTheKing = generateAttacks(WP, WN, WB, WR, WQ, WK, occupied, true);
+            // When attacked, we can do normal king moves and moves, which kill the attacker
+            // TODO MVR implement this :D
+//            for (long eachAttacker : enemyAttacks.getAttackers(WK)) {
+//                for (long eachDefender: protectTheKing.Attackers(eachAttacker)) {
+//
+//                }
+//            }
+            generateKingMoves(enemyAttacks, empty, occupiedBlack, WK, moves);
+        } else {
+            // all moves are possible
+            generatePawnMovesWhite(WP, occupied, empty, occupiedBlack, moves);
+            generateKnightMoves(WN, occupied, empty, occupiedBlack, moves);
+            generateBishopMoves(WB, occupied, empty, occupiedBlack, moves);
+            generateRookMoves(WR, occupied, empty, occupiedBlack, moves);
+            generateQueenMoves(WQ, occupied, empty, occupiedBlack, moves);
+            generateKingMoves(enemyAttacks, empty, occupiedBlack, WK, moves);
+            generateKingCastlingMoves(enemyAttacks, castlingInfo, occupied, true, WK, moves);
+        }
     }
 
     private static Attacks generateAttacks(final long pawns, final long knights, final long bishops, final long rooks, final long queens, final long king, final long occupied, boolean isWhite) {
@@ -246,13 +265,114 @@ public class MoveGeneration {
         return returnMe;
     }
 
-    public static void generateMovesBlack(final Attacks attacks,
+    public static long generatePawnMovesBlack(long pawns, final long occupied, final long empty, final long occupiedWhite, List<Move> moves) {
+        final long EMPTY = empty; // Fields which are empty, are marked with 1
+        final long pawnAttackMask = (pawns >>> 7 & ~BitBoards.FILE_H) | (pawns >>> 9 & ~FILE_A);
+        final long returnMe = pawnAttackMask;
+
+        // First create push 1 movement
+        // No promotion moves for now // TODO MVR why?
+        long push1 = pawns >>> 8 & EMPTY & ~RANK_1;
+        long push2 = (pawns >>> 16) & EMPTY & (EMPTY >>> 8) & RANK_5; // Empty is pushed as well, to prevent pushing through pieces
+        long pawnAttacks = pawnAttackMask & occupiedWhite & ~RANK_1;
+
+        // TODO MVR add promotions
+        // Move 1
+        long possibleMove = push1 & ~(push1 - 1);
+        while (possibleMove != 0) {
+            int index = 63 - Long.numberOfTrailingZeros(possibleMove);
+            moves.add(new Move(index - 8, index));
+            push1 &= ~possibleMove;
+            possibleMove = push1 & ~(push1 - 1);
+        }
+
+        // Move 2
+        possibleMove = push2 & ~(push2 - 1);
+        while (possibleMove != 0) {
+            int index = 63 - Long.numberOfTrailingZeros(possibleMove);
+            moves.add(new Move(index - 16, index));
+            push2 &= ~possibleMove;
+            possibleMove = push2 & ~(push2 - 1);
+        }
+
+        // Attack
+        possibleMove = pawnAttacks & ~(pawnAttacks - 1);
+        while (possibleMove != 0) {
+            final int index = 63 - Long.numberOfTrailingZeros(possibleMove);
+            final long tileMaskAttackRight = BitBoards.FILE_MASKS[(index - 7) % 8] & BitBoards.RANK_MASKS[7 - (index - 7) / 8];
+            final long tileMaskAttackLeft = BitBoards.FILE_MASKS[(index - 9) % 8] & BitBoards.RANK_MASKS[7 - (index - 9) / 8];
+            if ((tileMaskAttackRight & pawns) != 0) {
+                moves.add(new Move(index - 7, index));
+            }
+            if ((tileMaskAttackLeft & pawns) != 0) {
+                moves.add(new Move(index - 9, index));
+            }
+            pawnAttacks &= ~possibleMove;
+            possibleMove = pawnAttacks & ~(pawnAttacks - 1);
+        }
+
+        // Add promotion moves
+        long pawnpromotions = pawns >>> 8 & EMPTY & RANK_1;
+        for(int index : indices(pawnpromotions)) {
+            moves.add(new Move(index - 8, index, PieceType.Bishop));
+            moves.add(new Move(index - 8, index, PieceType.Knight));
+            moves.add(new Move(index - 8, index, PieceType.Queen));
+            moves.add(new Move(index - 8, index, PieceType.Rook));
+        }
+
+        // TODO MVR remove duplicated code :D
+        // add promotion captures
+        pawnpromotions = pawnAttackMask & occupiedWhite & RANK_1;
+        for (int index : indices(pawnpromotions)) {
+            final long tileMaskAttackRight = BitBoards.FILE_MASKS[(index - 7) % 8] & BitBoards.RANK_MASKS[7 - (index - 7) / 8];
+            final long tileMaskAttackLeft = BitBoards.FILE_MASKS[(index - 9) % 8] & BitBoards.RANK_MASKS[7 - (index - 9) / 8];
+            if ((tileMaskAttackRight & pawns) != 0) {
+                moves.add(new Move(index - 7, index, PieceType.Bishop));
+                moves.add(new Move(index - 7, index, PieceType.Knight));
+                moves.add(new Move(index - 7, index, PieceType.Queen));
+                moves.add(new Move(index - 7, index, PieceType.Rook));
+            }
+            if ((tileMaskAttackLeft & pawns) != 0) {
+                moves.add(new Move(index - 9, index, PieceType.Bishop));
+                moves.add(new Move(index - 9, index, PieceType.Knight));
+                moves.add(new Move(index - 9, index, PieceType.Queen));
+                moves.add(new Move(index - 9, index, PieceType.Rook));
+            }
+        }
+        return returnMe;
+    }
+
+    public static void generateMovesBlack(CastlingInfo castlingInfo,
                                           long BP, long BN, long BB, long BR, long BQ, long BK,
+                                          long WP, long WN, long WB, long WR, long WQ, long WK,
                                           long empty,
                                           long occupied,
                                           long occupiedWhite,
                                           List<Move> moves) {
-
+        final Attacks enemyAttacks = generateAttacks(WP, WN, WB, WR, WQ, WK, occupied, true);
+        final int kingAttackCount = enemyAttacks.getCheckCount(BK);
+        if (kingAttackCount >= 2) { // only king moves are valid
+            generateKingMoves(enemyAttacks, empty, occupiedWhite, BK, moves);
+        } else if(kingAttackCount == 1) {
+//            final Attacks protectTheKing = generateAttacks(BP, BN, BB, BR, BQ, BK, occupied, true);
+            // When attacked, we can do normal king moves and moves, which kill the attacker
+            // TODO MVR implement this :D
+//            for (long eachAttacker : enemyAttacks.getAttackers(WK)) {
+//                for (long eachDefender: protectTheKing.Attackers(eachAttacker)) {
+//
+//                }
+//            }
+            generateKingMoves(enemyAttacks, empty, occupiedWhite, BK, moves);
+        } else {
+            // all moves are possible
+            generatePawnMovesBlack(BP, occupied, empty, occupiedWhite, moves);
+            generateKnightMoves(BN, occupied, empty, occupiedWhite, moves);
+            generateBishopMoves(BB, occupied, empty, occupiedWhite, moves);
+            generateRookMoves(BR, occupied, empty, occupiedWhite, moves);
+            generateQueenMoves(BQ, occupied, empty, occupiedWhite, moves);
+            generateKingMoves(enemyAttacks, empty, occupiedWhite, BK, moves);
+            generateKingCastlingMoves(enemyAttacks, castlingInfo, occupied, false, BK, moves);
+        }
     }
 
     private static long generateKnightMoves(final long knights, final long occupied, final long empty, final long occupiedByOtherTeam, final List<Move> moves) {
