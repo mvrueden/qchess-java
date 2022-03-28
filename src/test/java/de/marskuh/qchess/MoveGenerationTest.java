@@ -310,6 +310,9 @@ public class MoveGenerationTest {
 //            final String fen = "4k3/8/8/8/8/8/8/4K2R b K - 0 1";
 //            final String fen = "r3k2r/8/8/8/8/8/8/R3K2R b KQkq - 0 1";
 //            final String fen = "8/8/8/8/8/K7/P7/k7 b - - 0 1";
+//            final String fen = "8/6k1/8/4pp2/3q4/6B1/p7/5KR1 b - - 0 1"; // TODO MVR add this to perfsuite.epd
+//            final String fen = "8/6k1/8/4pp2/3q4/6B1/p7/5KR1 w - - 0 1"; // TODO MVR add this to perfsuite.epd
+//            final String fen = "K7/8/8/3Q4/4q3/8/8/7k w - - 0 1";
             final String expectedString = columns[1].split(" ")[1].trim();
             final long expected = Long.parseLong(expectedString);
             final Board board = parser.parse(fen);
@@ -319,6 +322,8 @@ public class MoveGenerationTest {
             Assertions.assertThat(moves).hasSize((int) expected);
         }
     }
+
+    // TODO MVR add double check validation
 
     private static void printToConsole(Board board) {
         System.out.println(new BoardRenderer().render(board));

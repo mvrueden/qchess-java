@@ -36,10 +36,12 @@ public class MoveGeneration {
     public static class CastlingInfo {
         public final boolean canCastleQueenSide;
         public final boolean canCastleKingSide;
-        public CastlingInfo(final  boolean canCastleKingSide, final boolean canCastleQueenSide) {
+
+        public CastlingInfo(final boolean canCastleKingSide, final boolean canCastleQueenSide) {
             this.canCastleQueenSide = canCastleQueenSide;
             this.canCastleKingSide = canCastleKingSide;
         }
+
         public CastlingInfo() {
             this(true, true);
         }
@@ -69,7 +71,43 @@ public class MoveGeneration {
                     board.getOccupiedSquares(Team.White),
                     moves);
         }
+
+        final long occupied = board.getOccupiedSquares();
+        final long ownPieces = side.getOccupiedSquares();
+        final int kingIndex = indices(side.king).get(0);
+        final long pinned = generatePinnedPiecesBitboard(occupied, ownPieces, kingIndex, other.bishops | other.queens, other.bishops | other.queens) & ~side.king;
+        if (pinned != 0) {
+            final List<Move> filteredMoves = new ArrayList<>();
+            for (Move m : moves) {
+                if (((1L << (63 - m.getFromIndex())) & pinned) == 0 || isInLine(m.getFromIndex(), m.getToIndex(), kingIndex)) {
+                    filteredMoves.add(m);
+                }
+            }
+            return filteredMoves;
+        }
         return moves;
+    }
+
+    private static boolean isInLine(int fromIndex, int toIndex, int kingIndex) {
+        // Same file
+        if (fromIndex % 8 == toIndex % 8 && toIndex % 8 == kingIndex % 8) {
+            return true;
+        }
+        // Same rank
+        if (fromIndex / 8 == toIndex / 8 && toIndex / 8 == kingIndex / 8) {
+            return true;
+        }
+        // Diagonal
+        final int file1 = fromIndex % 8;
+        final int file2 = toIndex % 8;
+        final int file3 = kingIndex % 8;
+        final int rank1 = fromIndex / 8;
+        final int rank2 = toIndex / 8;
+        final int rank3 = kingIndex / 8;
+        if (Math.abs(rank1 - rank2) == Math.abs(file1 - file2) && Math.abs(rank2 - rank3) == Math.abs(file2 - file3)) {
+            return true;
+        }
+        return false;
     }
 
     public static void generateMovesWhite(final CastlingInfo castlingInfo,
@@ -79,12 +117,12 @@ public class MoveGeneration {
                                           long occupied,
                                           long occupiedBlack,
                                           List<Move> moves) {
-        final Attacks enemyAttacks = generateAttacks(BP, BN, BB, BR, BQ, BK, occupied, false);
+        final Attacks enemyAttacks = generateAttacks(BP, BN, BB, BR, BQ, BK, occupied, WK, false);
         final int kingAttackCount = enemyAttacks.getCheckCount(WK);
         if (kingAttackCount >= 2) { // only king moves are valid
             generateKingMoves(enemyAttacks, empty, occupiedBlack, WK, moves);
-        } else if(kingAttackCount == 1) {
-            final Attacks protectTheKing = generateAttacks(WP, WN, WB, WR, WQ, WK, occupied, true);
+        } else if (kingAttackCount == 1) {
+//            final Attacks protectTheKing = generateAttacks(WP, WN, WB, WR, WQ, WK, occupied, true);
             // When attacked, we can do normal king moves and moves, which kill the attacker
             // TODO MVR implement this :D
 //            for (long eachAttacker : enemyAttacks.getAttackers(WK)) {
@@ -105,13 +143,14 @@ public class MoveGeneration {
         }
     }
 
-    private static Attacks generateAttacks(final long pawns, final long knights, final long bishops, final long rooks, final long queens, final long king, final long occupied, boolean isWhite) {
+    private static Attacks generateAttacks(final long pawns, final long knights, final long bishops, final long rooks, final long queens, final long king, final long occupied, final long enemyKing, boolean isWhite) {
         final Attacks attacks = new Attacks();
-        attacks.pawnAttackMask = isWhite ?  (pawns << 7 & ~BitBoards.FILE_A) | (pawns << 9 & ~FILE_H) : (pawns >>> 7 & ~FILE_H) | (pawns >>> 9 & ~BitBoards.FILE_A);
+        final long occupiedWithoutEnemyKing = occupied & ~enemyKing; // sliding pieces must ignore the king, in order to prevent the king moving in the "sliding" direction.
+        attacks.pawnAttackMask = isWhite ? (pawns << 7 & ~BitBoards.FILE_A) | (pawns << 9 & ~FILE_H) : (pawns >>> 7 & ~FILE_H) | (pawns >>> 9 & ~BitBoards.FILE_A);
         attacks.knightAttackMask = indices(knights).stream().map(MoveGeneration::generateKnightAttackMask).reduce((left, right) -> left | right).orElse(0L);
-        attacks.bishopAttackMask = indices(bishops).stream().map(i -> MoveGeneration.generateDiagonalAttacks(i, occupied)).reduce((left, right) -> left | right).orElse(0L);
-        attacks.rookAttackMask = indices(rooks).stream().map(i -> MoveGeneration.generateLineAttackMask(i, occupied)).reduce((left, right) -> left | right).orElse(0L);
-        attacks.queenAttackMask = indices(queens).stream().map(i -> MoveGeneration.generateLineAttackMask(i, occupied) | MoveGeneration.generateDiagonalAttacks(i, occupied)).reduce((left, right) -> left | right).orElse(0L);
+        attacks.bishopAttackMask = indices(bishops).stream().map(i -> MoveGeneration.generateDiagonalAttacks(i, occupiedWithoutEnemyKing)).reduce((left, right) -> left | right).orElse(0L);
+        attacks.rookAttackMask = indices(rooks).stream().map(i -> MoveGeneration.generateLineAttackMask(i, occupiedWithoutEnemyKing)).reduce((left, right) -> left | right).orElse(0L);
+        attacks.queenAttackMask = indices(queens).stream().map(i -> MoveGeneration.generateLineAttackMask(i, occupiedWithoutEnemyKing) | MoveGeneration.generateDiagonalAttacks(i, occupied)).reduce((left, right) -> left | right).orElse(0L);
         attacks.kingAttackMask = generateKingMoveMask(king);
         return attacks;
     }
@@ -173,8 +212,8 @@ public class MoveGeneration {
         final long unsafe = ~occupied & attacks.getAll();
         if ((king & unsafe) == 0) { // if in check, we cannot castle
             final int fromIndex = white ? 60 : 4;
-            final int[] queenSideIndices = new int[]{fromIndex - 1, fromIndex-2, fromIndex-3};
-            final int[] kingSideIndices = new int[]{fromIndex + 1, fromIndex+2};
+            final int[] queenSideIndices = new int[]{fromIndex - 1, fromIndex - 2, fromIndex - 3};
+            final int[] kingSideIndices = new int[]{fromIndex + 1, fromIndex + 2};
             // TODO MVR can be hardcoded as well
             if (castlingInfo.canCastleKingSide && Arrays.stream(kingSideIndices).noneMatch(i -> (1L << (63 - i) & (occupied | unsafe)) != 0)) {
                 moves.add(new Move(fromIndex, fromIndex + 2, MoveFlag.Castling));
@@ -182,7 +221,7 @@ public class MoveGeneration {
             // TODO MVR can be hardcoded as well
             if (castlingInfo.canCastleQueenSide
                     && Arrays.stream(queenSideIndices).noneMatch(i -> (1L << (63 - i) & (occupied)) != 0)
-                    && Arrays.stream(new int[]{fromIndex -1, fromIndex -2}).noneMatch(i -> (1L << (63 -i) & (unsafe)) != 0)) {
+                    && Arrays.stream(new int[]{fromIndex - 1, fromIndex - 2}).noneMatch(i -> (1L << (63 - i) & (unsafe)) != 0)) {
                 moves.add(new Move(fromIndex, fromIndex - 2, MoveFlag.Castling));
             }
         }
@@ -236,7 +275,7 @@ public class MoveGeneration {
 
         // Add promotion moves
         long pawnpromotions = pawns << 8 & EMPTY & RANK_8;
-        for(int index : indices(pawnpromotions)) {
+        for (int index : indices(pawnpromotions)) {
             moves.add(new Move(index + 8, index, PieceType.Bishop));
             moves.add(new Move(index + 8, index, PieceType.Knight));
             moves.add(new Move(index + 8, index, PieceType.Queen));
@@ -313,7 +352,7 @@ public class MoveGeneration {
 
         // Add promotion moves
         long pawnpromotions = pawns >>> 8 & EMPTY & RANK_1;
-        for(int index : indices(pawnpromotions)) {
+        for (int index : indices(pawnpromotions)) {
             moves.add(new Move(index - 8, index, PieceType.Bishop));
             moves.add(new Move(index - 8, index, PieceType.Knight));
             moves.add(new Move(index - 8, index, PieceType.Queen));
@@ -349,11 +388,11 @@ public class MoveGeneration {
                                           long occupied,
                                           long occupiedWhite,
                                           List<Move> moves) {
-        final Attacks enemyAttacks = generateAttacks(WP, WN, WB, WR, WQ, WK, occupied, true);
-        final int kingAttackCount = enemyAttacks.getCheckCount(BK);
+        final Attacks whiteAttacks = generateAttacks(WP, WN, WB, WR, WQ, WK, occupied, BK, true);
+        final int kingAttackCount = whiteAttacks.getCheckCount(BK);
         if (kingAttackCount >= 2) { // only king moves are valid
-            generateKingMoves(enemyAttacks, empty, occupiedWhite, BK, moves);
-        } else if(kingAttackCount == 1) {
+            generateKingMoves(whiteAttacks, empty, occupiedWhite, BK, moves);
+        } else if (kingAttackCount == 1) {
 //            final Attacks protectTheKing = generateAttacks(BP, BN, BB, BR, BQ, BK, occupied, true);
             // When attacked, we can do normal king moves and moves, which kill the attacker
             // TODO MVR implement this :D
@@ -362,7 +401,7 @@ public class MoveGeneration {
 //
 //                }
 //            }
-            generateKingMoves(enemyAttacks, empty, occupiedWhite, BK, moves);
+            generateKingMoves(whiteAttacks, empty, occupiedWhite, BK, moves);
         } else {
             // all moves are possible
             generatePawnMovesBlack(BP, occupied, empty, occupiedWhite, moves);
@@ -370,8 +409,8 @@ public class MoveGeneration {
             generateBishopMoves(BB, occupied, empty, occupiedWhite, moves);
             generateRookMoves(BR, occupied, empty, occupiedWhite, moves);
             generateQueenMoves(BQ, occupied, empty, occupiedWhite, moves);
-            generateKingMoves(enemyAttacks, empty, occupiedWhite, BK, moves);
-            generateKingCastlingMoves(enemyAttacks, castlingInfo, occupied, false, BK, moves);
+            generateKingMoves(whiteAttacks, empty, occupiedWhite, BK, moves);
+            generateKingCastlingMoves(whiteAttacks, castlingInfo, occupied, false, BK, moves);
         }
     }
 
@@ -498,12 +537,102 @@ public class MoveGeneration {
         return (diagonalAttacks & diagonalMask) | (antiDiagonalAttacks & antiDiagonalMask);
     }
 
-    // TODO MVR ...
-    public static final String STARTING_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
-
-    public static void main(String[] args) {
-        final Board board = new FenParser().parse(STARTING_FEN);
-        final List<Move> moves = MoveGeneration.generateMoves(board, Team.White);
-        System.out.println();
+    // return bitboard of pinned pieces for player side
+    // https://www.chessprogramming.org/Checks_and_Pinned_Pieces_(Bitboards) -> Absolute Pins
+    public static long generatePinnedPiecesBitboard(final long occupied, final long ownPieces, final int squareOfKing, final long opRook, final long opBishop) {
+        long pinned = 0;
+        long pinner = xrayRookAttacks(occupied, ownPieces, squareOfKing) & opRook;
+        for (int sq : indices(pinner)) {
+            pinned |= inBetween(sq, squareOfKing) & ownPieces;
+        }
+        pinner = xrayBishopAttacks(occupied, ownPieces, squareOfKing) & opBishop;
+        for (int sq : indices(pinner)) {
+            pinned |= inBetween(sq, squareOfKing) & ownPieces;
+        }
+        return pinned;
     }
+
+    private static long xrayRookAttacks(final long occ, final long theBlockers, final int rookSq) {
+        final long attacks = generateLineAttackMask(rookSq, occ);
+        final long blockers = theBlockers & attacks;
+        return attacks ^ generateLineAttackMask(rookSq, occ ^ blockers);
+    }
+
+    private static long xrayBishopAttacks(final long occ, final long theBlockers, final int bishopSq) {
+        final long attacks = generateDiagonalAttacks(bishopSq, occ);
+        final long blockers = theBlockers & attacks;
+        return attacks ^ generateDiagonalAttacks(bishopSq, occ ^ blockers);
+    }
+
+    // TODO MVR try to understand and also pre-calculate this :D
+    // https://www.chessprogramming.org/Square_Attacked_By#Obstructed => Pure Calculation
+    public static long inBetween(int squareIndex1, int squareIndex2) {
+        final int sq1 = Math.min(squareIndex1, squareIndex2);
+        final int sq2 = Math.max(squareIndex1, squareIndex2);
+        final int file1 = squareIndex1 % 8;
+        final int file2 = squareIndex2 % 8;
+        final int rank1 = 7 - (squareIndex1 / 8);
+        final int rank2 = 7 - (squareIndex2 / 8);
+        final int distance = Math.abs(squareIndex1 - squareIndex2);
+
+        // same file
+        if (file1 == file2) {
+            long x = 0L;
+            for (int i = 7 - sq1 % 8; i >= 0; i--) {
+                x |= 1L << (63 - (i * 8));
+            }
+            return x;
+        }
+
+        // same rank
+        if (rank1 == rank2) {
+            long x = 0L;
+            for (int i = sq1; i <= sq2; i++) {
+                x |= 1L << (63 - i);
+            }
+            return x;
+        }
+
+        // check if distance is 7 or 9, then it is diagonal
+        if (distance % 7 == 0 || distance % 9 == 0) {
+            final long addMe = distance % 7 == 0 ? 7 : 9;
+            long x = 0L;
+            for (int i = sq1; i < sq2; i += addMe) {
+                x |= 1L << (63 - i);
+            }
+            return x;
+        }
+
+        // We return the to square, as anything else does not make sense
+        return squareIndex2;
+
+//        final long m1 = -1;
+//        final long a2a7 = Tiles.A2 | Tiles.A3 | Tiles.A4 | Tiles.A5 | Tiles.A6 | Tiles.A7; //0x0001010101010100L;
+//        final long b2g7 = Tiles.B2 | Tiles.C3 | Tiles.D4 | Tiles.E5 | Tiles.F6 | Tiles.G7; //0x0040201008040200L;
+//        final long h1b7 = Tiles.H1 | Tiles.G2 | Tiles.F3 | Tiles.E4 | Tiles.D5 | Tiles.C6 | Tiles.B7; //0x0002040810204080L;
+//        final int sq1 = squareIndex1;
+//        final int sq2 = squareIndex2;
+//
+////        printToConsole(a2a7);
+////        printToConsole(b2g7);
+////        printToConsole(h1b7);
+////
+////
+////        //        printToConsole(-1);
+//////        printToConsole(0x0040201008040200L); // b2g7 -> stimmt nicht
+//////        printToConsole(0x0002040810204080L); // h1b7 -> stimmt// nicht
+//
+//        final long btwn = (m1 << sq1) ^ (m1 << sq2);
+//        final long file = (sq2 & 7) - (sq1 & 7);
+//        final long rank = ((sq2 | 7) - sq1) >> 3;
+//        long line = ((file & 7) - 1) & a2a7; /* a2a7 if same file */
+//        line += 2 * (((rank & 7) - 1) >> 58); /* b1g1 if same rank */
+//        line += (((rank - file) & 15) - 1) & b2g7; /* b2g7 if same diagonal */
+//        line += (((rank + file) & 15) - 1) & h1b7; /* h1b7 if same antidiag */
+//        line *= btwn & -btwn; /* mul acts like shift by smaller square */
+//        final long result = line & btwn;   /* return the bits on that line in-between */
+//        return result;
+//        printToConsole(result);
+    }
+
 }
